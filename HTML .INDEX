@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Based Paralysed Gesture Control</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f2f2f2;
+    }
+    video, canvas {
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    #message {
+      font-size: 28px;
+      color: red;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>AI Based Paralysed Gesture Recognition</h1>
+
+<video id="video" width="640" height="480" autoplay></video>
+<canvas id="canvas" width="640" height="480"></canvas>
+
+<div id="message">Show a hand gesture</div>
+
+<!-- MediaPipe Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<script>
+  const videoElement = document.getElementById("video");
+  const canvasElement = document.getElementById("canvas");
+  const canvasCtx = canvasElement.getContext("2d");
+  const message = document.getElementById("message");
+
+  function countFingers(landmarks) {
+    let fingers = 0;
+
+    // Thumb
+    if (landmarks[4].x < landmarks[3].x) fingers++;
+
+    // Other fingers
+    if (landmarks[8].y < landmarks[6].y) fingers++;
+    if (landmarks[12].y < landmarks[10].y) fingers++;
+    if (landmarks[16].y < landmarks[14].y) fingers++;
+    if (landmarks[20].y < landmarks[18].y) fingers++;
+
+    return fingers;
+  }
+
+  function onResults(results) {
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+    if (results.multiHandLandmarks) {
+      for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00'});
+        drawLandmarks(canvasCtx, landmarks, {color: '#FF0000'});
+
+        let fingerCount = countFingers(landmarks);
+
+        if (fingerCount === 1) message.innerText = "YES 👍";
+        else if (fingerCount === 2) message.innerText = "NO 👎";
+        else if (fingerCount === 3) message.innerText = "NEED WATER 💧";
+        else if (fingerCount === 4) message.innerText = "CALL NURSE 🏥";
+        else if (fingerCount === 5) message.innerText = "EMERGENCY 🚨";
+        else message.innerText = "Show Gesture";
+      }
+    }
+
+    canvasCtx.restore();
+  }
+
+  const hands = new Hands({
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    }
+  });
+
+  hands.setOptions({
+    maxNumHands: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
+  });
+
+  hands.onResults(onResults);
+
+  const camera = new Camera(videoElement, {
+    onFrame: async () => {
+      await hands.send({image: videoElement});
+    },
+    width: 640,
+    height: 480
+  });
+
+  camera.start();
+</script>
+
+</body>
+</html>
